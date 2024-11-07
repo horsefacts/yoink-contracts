@@ -17,11 +17,16 @@ contract GenerateTokenArt is Script {
         string memory flagSVG = yoink.generateFlagSVG(testAddress, testScore);
         string memory flagJSON = yoink.generateFlagJSON(testAddress, testScore);
 
+        string memory trophySVG = yoink.generateTrophySVG(testAddress, testScore);
+        string memory trophyJSON = yoink.generateTrophyJSON(testAddress, testScore);
+
         string memory scoreSVG = yoink.generateScoreSVG(testAddress, testScore);
         string memory scoreJSON = yoink.generateScoreJSON(testAddress, testScore);
 
         vm.writeFile("./tmp/flag.svg", flagSVG);
         vm.writeFile("./tmp/flag.json", flagJSON);
+        vm.writeFile("./tmp/trophy.svg", trophySVG);
+        vm.writeFile("./tmp/trophy.json", trophyJSON);
         vm.writeFile("./tmp/score.svg", scoreSVG);
         vm.writeFile("./tmp/score.json", scoreJSON);
     }

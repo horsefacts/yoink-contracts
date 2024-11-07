@@ -11,6 +11,7 @@ contract YoinkTest is Test {
 
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
+    address carol = makeAddr("carol");
 
     function setUp() public {
         yoink = new Yoink();
@@ -174,7 +175,7 @@ contract YoinkTest is Test {
 
     function _expectYoinkEvent(address by, address from) internal {
         vm.expectEmit(true, true, true, true);
-        emit Yoinked(by, from);
+        emit Yoinked(by, from, block.timestamp - yoink.lastYoinkedAt());
     }
 
     function test_yoink_prevents_reentrancy() public {
@@ -260,6 +261,73 @@ contract YoinkTest is Test {
         vm.prank(alice);
         vm.expectRevert(Unauthorized.selector);
         yoink.yoink();
+    }
+
+    function test_initial_trophy_ownership() public {
+        assertEq(yoink.balanceOf(address(yoink), yoink.TROPHY_ID()), 1);
+        assertEq(yoink.balanceOf(alice, yoink.TROPHY_ID()), 0);
+        assertEq(yoink.topYoinker(), address(yoink));
+        assertEq(yoink.mostYoinks(), 0);
+    }
+
+    function test_trophy_first_yoinker() public {
+        vm.prank(alice);
+        yoink.yoink();
+
+        assertEq(yoink.balanceOf(address(yoink), yoink.TROPHY_ID()), 0);
+        assertEq(yoink.balanceOf(alice, yoink.TROPHY_ID()), 1);
+        assertEq(yoink.topYoinker(), alice);
+        assertEq(yoink.mostYoinks(), 1);
+    }
+
+    function test_trophy_transfer_on_tie() public {
+        // Alice yoinks first
+        vm.prank(alice);
+        yoink.yoink();
+        assertEq(yoink.balanceOf(alice, yoink.TROPHY_ID()), 1);
+
+        // Bob matches Alice's yoinks, tie goes to latest yoink
+        vm.prank(bob);
+        yoink.yoink();
+        assertEq(yoink.balanceOf(alice, yoink.TROPHY_ID()), 0);
+        assertEq(yoink.balanceOf(bob, yoink.TROPHY_ID()), 1);
+        assertEq(yoink.topYoinker(), bob);
+        assertEq(yoink.mostYoinks(), 1);
+    }
+
+    function test_trophy_multiple_yoinks() public {
+        vm.prank(alice);
+        yoink.yoink(); // Alice: 1 yoink
+
+        vm.prank(bob);
+        yoink.yoink(); // Bob: 1 yoink
+
+        vm.warp(block.timestamp + yoink.COOLDOWN());
+        vm.prank(alice);
+        yoink.yoink(); // Alice: 2 yoinks
+
+        assertEq(yoink.balanceOf(bob, yoink.TROPHY_ID()), 0);
+        assertEq(yoink.balanceOf(alice, yoink.TROPHY_ID()), 1);
+        assertEq(yoink.topYoinker(), alice);
+        assertEq(yoink.mostYoinks(), 2);
+
+        vm.warp(block.timestamp + yoink.COOLDOWN());
+        vm.prank(bob);
+        yoink.yoink(); // Bob: 2 yoinks. Tie goes to latest yoink.
+
+        assertEq(yoink.balanceOf(alice, yoink.TROPHY_ID()), 0);
+        assertEq(yoink.balanceOf(bob, yoink.TROPHY_ID()), 1);
+        assertEq(yoink.topYoinker(), bob);
+        assertEq(yoink.mostYoinks(), 2);
+    }
+
+    function test_trophy_direct_transfer_reverts() public {
+        vm.prank(alice);
+        yoink.yoink();
+
+        vm.prank(alice);
+        vm.expectRevert(Unauthorized.selector);
+        yoink.safeTransferFrom(alice, bob, 2, 1, "");
     }
 }
 
